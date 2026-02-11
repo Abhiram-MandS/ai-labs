@@ -10,9 +10,6 @@
 │                                                              │
 │  contents/**/*.md ──→ scripts/build-content.ts ──→ lib/content-data.ts
 │                           (gray-matter)             (auto-generated)
-│                                                              │
-│  GitHub Repo ──→ scripts/fetch-prompts.ts ──→ contents/*/generated/
-│  (CI/CD only)        (@octokit/rest)                         │
 └──────────────────────────────────────────────────────────────┘
 
 ┌──────────────────────────────────────────────────────────────┐
@@ -56,8 +53,7 @@ ai-labs-app/
 │   ├── data.ts                 # Re-export layer for INITIAL_CONTENT
 │   └── content-data.ts         # ⚠️ AUTO-GENERATED — never edit
 ├── scripts/
-│   ├── build-content.ts        # Compiles .md → content-data.ts
-│   └── fetch-prompts.ts        # Downloads .md from GitHub (CI/CD)
+│   └── build-content.ts        # Compiles .md → content-data.ts
 ├── public/                     # Static assets
 ├── eslint.config.mjs           # ESLint flat config (next/core-web-vitals + typescript)
 ├── postcss.config.mjs          # PostCSS with @tailwindcss/postcss
@@ -118,8 +114,6 @@ Your full markdown content goes here.
 
 ⚠️ **`lib/content-data.ts` is auto-generated** — Never edit it manually. It is overwritten every time `build-content` runs. Change content by editing `.md` files in `contents/`.
 
-⚠️ **`contents/*/generated/` directories are CI-managed** — Files in `generated/` folders are downloaded by `fetch-prompts.ts` from `DigitalInnovation/GitHub-Copilot-Prompt-Library`. They are wiped and re-created on each run. Don't put hand-authored content there.
-
 ⚠️ **Dark mode is class-based, not media-query** — The app uses a `.dark` class on the root `<div>`, toggled via `useState`. The `globals.css` uses `@custom-variant dark (&:is(.dark *))`. Always include `dark:` variants when styling.
 
 ⚠️ **No API routes exist** — This is a fully static client-side app. All data is compiled at build time. Don't create `app/api/` routes.
@@ -159,8 +153,6 @@ No formal exception handling layer exists. Key patterns in the code:
 
 | Area | Behavior |
 |------|----------|
-| `fetch-prompts.ts` | Catches 404s from GitHub API and logs warnings. Continues without failing the build. |
-| `fetch-prompts.ts` | If `GITHUB_TOKEN` is unset, skips entirely with a console warning. |
 | Clipboard (`ContentCard`, `ContentModal`) | Uses `navigator.clipboard.writeText` — no error handling. |
 | `localStorage` (`QuickNotes`, theme) | Direct read/write — no try/catch for quota or disabled storage. |
 
@@ -181,21 +173,17 @@ No tracing, logging, or metrics infrastructure is configured. The app is a stati
 |---------|--------------|
 | `pnpm install` | Install all dependencies |
 | `pnpm run dev` | Start dev server on port 4200 (auto-runs `build-content`) |
-| `pnpm run build` | Production build (runs `fetch-prompts` + `build-content` first) |
+| `pnpm run build` | Production build (runs `build-content` first) |
 | `pnpm start` | Serve production build |
 | `pnpm run build-content` | Regenerate `lib/content-data.ts` from `contents/**/*.md` |
-| `pnpm run fetch-prompts` | Download content from GitHub (needs `GITHUB_TOKEN`) |
 | `pnpm run lint` | Run ESLint |
 
 ## 13 · Environment & CI/CD
 
-| Variable | Required | Description |
-|----------|----------|-------------|
-| `GITHUB_TOKEN` | CI only | PAT for fetching from `DigitalInnovation/GitHub-Copilot-Prompt-Library` |
+No environment variables are required.
 
 - **`predev`** hook runs `build-content` automatically.
-- **`prebuild`** hook runs `fetch-prompts` then `build-content`.
-- `fetch-prompts` is designed to fail gracefully without `GITHUB_TOKEN`.
+- **`prebuild`** hook runs `build-content`.
 
 ## 14 · Key Dependencies
 
@@ -210,7 +198,6 @@ No tracing, logging, or metrics infrastructure is configured. The app is a stati
 | `@tailwindcss/typography` | ^0.5.19 | Prose styling for markdown |
 | `gray-matter` | ^4.0.3 | YAML frontmatter parser (build-time) |
 | `tsx` | ^4.21.0 | Run TypeScript scripts directly |
-| `@octokit/rest` | ^22.0.1 | GitHub API client (build-time) |
 | `typescript` | ^5 | Type system |
 
 ## 15 · Anti-Patterns — What NOT to Generate
@@ -218,7 +205,6 @@ No tracing, logging, or metrics infrastructure is configured. The app is a stati
 - ❌ Don't create API routes (`app/api/`) — this app has no backend
 - ❌ Don't use Server Components with interactivity — all components are `'use client'`
 - ❌ Don't edit `lib/content-data.ts` — it's auto-generated
-- ❌ Don't put content files in `contents/*/generated/` — those are CI-managed
 - ❌ Don't use CSS-in-JS, CSS modules, or `<style>` tags — use Tailwind only
 - ❌ Don't add state management libraries — React state in `page.tsx` is sufficient
 - ❌ Don't use relative imports — use `@/` path alias

@@ -80,25 +80,23 @@ ai-labs-app/
 │   ├── data.ts               # Data re-export layer
 │   └── content-data.ts       # ⚙️ Auto-generated (do not edit)
 ├── scripts/
-│   ├── build-content.ts      # Compiles .md → content-data.ts
-│   └── fetch-prompts.ts      # Fetches content from GitHub (CI/CD)
+│   └── build-content.ts      # Compiles .md → content-data.ts
 └── public/                   # Static assets
 ```
 
 ## Build Pipeline
 
 ```
-fetch-prompts (CI/CD only)  →  build-content  →  next build
-        ↓                           ↓
-  Downloads .md from          Reads all .md from
-  private GitHub repo         contents/ folders
-  into generated/             and generates
-  directories                 lib/content-data.ts
+build-content  →  next build
+        ↓
+  Reads all .md from
+  contents/ folders
+  and generates
+  lib/content-data.ts
 ```
 
 - **`predev`** runs `build-content` automatically before `dev`.
-- **`prebuild`** runs both `fetch-prompts` and `build-content` before `build`.
-- `fetch-prompts` requires a `GITHUB_TOKEN` env var and gracefully skips when absent.
+- **`prebuild`** runs `build-content` before `build`.
 
 ## Adding Content
 
