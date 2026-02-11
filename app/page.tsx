@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Layout, Plus } from 'lucide-react';
 import Sidebar from '@/components/Sidebar';
 import SearchBar from '@/components/SearchBar';
@@ -10,13 +10,30 @@ import QuickNotes from '@/components/QuickNotes';
 import { INITIAL_CONTENT } from '@/lib/data';
 import { ContentItem } from '@/lib/types';
 
+// Helper to compute greeting based on time of day
+function getGreeting() {
+  const hour = new Date().getHours();
+  if (hour < 12) return 'Good morning';
+  if (hour < 18) return 'Good afternoon';
+  return 'Good evening';
+}
+
 export default function Home() {
   const [activeCategory, setActiveCategory] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
-  const [filteredContent, setFilteredContent] = useState(INITIAL_CONTENT);
-  const [greeting, setGreeting] = useState('');
-  const [isDarkMode, setIsDarkMode] = useState(false);
-  const [selectedItem, setSelectedItem] = useState<ContentItem | null>(null);
+  const [greeting] = useState(getGreeting);
+  const [isDarkMode, setIsDarkMode] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    return localStorage.getItem('ai_labs_theme') === 'dark';
+  });
+  const [selectedItem, setSelectedItem] = useState<ContentItem | null>(() => {
+    if (typeof window === 'undefined') return null;
+    const hash = window.location.hash.replace('#', '');
+    if (hash) {
+      return INITIAL_CONTENT.find((item) => item.slug === hash) || null;
+    }
+    return null;
+  });
 
   // Open/close item and sync URL hash
   const openItem = (item: ContentItem) => {
@@ -28,15 +45,6 @@ export default function Home() {
     setSelectedItem(null);
     window.history.replaceState(null, '', window.location.pathname + window.location.search);
   };
-
-  // Restore item from URL hash on mount
-  useEffect(() => {
-    const hash = window.location.hash.replace('#', '');
-    if (hash) {
-      const match = INITIAL_CONTENT.find((item) => item.slug === hash);
-      if (match) setSelectedItem(match);
-    }
-  }, []);
 
   // Listen for browser back/forward
   useEffect(() => {
@@ -53,21 +61,7 @@ export default function Home() {
     return () => window.removeEventListener('hashchange', onHashChange);
   }, []);
 
-  // Greeting Logic
-  useEffect(() => {
-    const hour = new Date().getHours();
-    if (hour < 12) setGreeting('Good morning');
-    else if (hour < 18) setGreeting('Good afternoon');
-    else setGreeting('Good evening');
-  }, []);
 
-  // Dark mode persistence
-  useEffect(() => {
-    const savedTheme = localStorage.getItem('ai_labs_theme');
-    if (savedTheme) {
-      setIsDarkMode(savedTheme === 'dark');
-    }
-  }, []);
 
   const toggleTheme = () => {
     const newTheme = !isDarkMode;
@@ -75,19 +69,20 @@ export default function Home() {
     localStorage.setItem('ai_labs_theme', newTheme ? 'dark' : 'light');
   };
 
-  // Filter Logic
-  useEffect(() => {
+  // Filter Logic - derived state using useMemo, sorted alphabetically
+  const filteredContent = useMemo(() => {
     const lowerQuery = searchQuery.toLowerCase();
-    const filtered = INITIAL_CONTENT.filter((item) => {
-      const matchesCategory = activeCategory === 'all' || item.category === activeCategory;
-      const matchesSearch = 
-        item.name.toLowerCase().includes(lowerQuery) || 
-        item.description.toLowerCase().includes(lowerQuery) ||
-        item.content.toLowerCase().includes(lowerQuery) ||
-        item.tags.some(tag => tag.toLowerCase().includes(lowerQuery));
-      return matchesCategory && matchesSearch;
-    });
-    setFilteredContent(filtered);
+    return INITIAL_CONTENT
+      .filter((item) => {
+        const matchesCategory = activeCategory === 'all' || item.category === activeCategory;
+        const matchesSearch = 
+          item.name.toLowerCase().includes(lowerQuery) || 
+          item.description.toLowerCase().includes(lowerQuery) ||
+          item.content.toLowerCase().includes(lowerQuery) ||
+          item.tags.some(tag => tag.toLowerCase().includes(lowerQuery));
+        return matchesCategory && matchesSearch;
+      })
+      .sort((a, b) => a.name.localeCompare(b.name));
   }, [activeCategory, searchQuery]);
 
   // Keyboard shortcut for search

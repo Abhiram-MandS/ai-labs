@@ -33,6 +33,7 @@ interface ContentEntry {
   description: string;
   category: string;
   content: string;
+  rawContent?: string;
   tags: string[];
   url?: string;
   color: string;
@@ -117,7 +118,7 @@ function main() {
     const { data: fm, content: mdContent } = matter(raw) as { data: FrontMatter; content: string };
     const filename = path.basename(filePath);
 
-    items.push({
+    const entry: ContentEntry = {
       id: i + 1,
       slug: slugify(filename),
       name: fm.name || titleCase(filename),
@@ -127,7 +128,14 @@ function main() {
       tags: fm.tags || [],
       url: fm.url,
       color: CATEGORY_COLORS[category] || CATEGORY_COLORS.prompts,
-    });
+    };
+
+    // Include raw content (with frontmatter) for agents
+    if (category === 'agents') {
+      entry.rawContent = raw.trim();
+    }
+
+    items.push(entry);
 
     console.log(`   ✅ ${category}/${filename}`);
   }
@@ -142,13 +150,14 @@ function main() {
 function generateOutput(items: ContentEntry[]): string {
   const itemStrings = items.map((item) => {
     const urlLine = item.url ? `\n    url: '${item.url}',` : '';
+    const rawContentLine = item.rawContent ? `\n    rawContent: \`${escapeForTemplate(item.rawContent)}\`,` : '';
     return `  {
     id: ${item.id},
     slug: '${item.slug}',
     name: '${item.name.replace(/'/g, "\\'")}',
     description: '${item.description.replace(/'/g, "\\'")}',
     category: '${item.category}',
-    content: \`${escapeForTemplate(item.content)}\`,
+    content: \`${escapeForTemplate(item.content)}\`,${rawContentLine}
     tags: [${item.tags.map((t) => `'${t}'`).join(', ')}],${urlLine}
     color: '${item.color}',
   }`;

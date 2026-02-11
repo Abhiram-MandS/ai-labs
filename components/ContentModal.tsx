@@ -18,7 +18,9 @@ export default function ContentModal({ item, onClose }: ContentModalProps) {
   if (!item) return null;
 
   const handleCopy = () => {
-    navigator.clipboard.writeText(item.content);
+    // For agents, copy rawContent (includes frontmatter); otherwise copy content
+    const textToCopy = item.rawContent || item.content;
+    navigator.clipboard.writeText(textToCopy);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };

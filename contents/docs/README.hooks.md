@@ -1,0 +1,32 @@
+---
+name: Hooks Guide
+description: Automated workflows triggered by events during Copilot coding agent sessions
+tags: [hooks, automation, copilot, workflows]
+---
+
+# 🪝 Hooks
+
+Hooks enable automated workflows triggered by specific events during GitHub Copilot coding agent sessions, such as session start, session end, user prompts, and tool usage.
+### How to Use Hooks
+
+**What's Included:**
+- Each hook is a folder containing a `README.md` file and a `hooks.json` configuration
+- Hooks may include helper scripts, utilities, or other bundled assets
+- Hooks follow the [GitHub Copilot hooks specification](https://docs.github.com/en/copilot/how-tos/use-copilot-agents/coding-agent/use-hooks)
+
+**To Install:**
+- Copy the hook folder to your repository's `.github/hooks/` directory
+- Ensure any bundled scripts are executable (`chmod +x script.sh`)
+- Commit the hook to your repository's default branch
+
+**To Activate/Use:**
+- Hooks automatically execute during Copilot coding agent sessions
+- Configure hook events in the `hooks.json` file
+- Available events: `sessionStart`, `sessionEnd`, `userPromptSubmitted`, `preToolUse`, `postToolUse`, `errorOccurred`
+
+**When to Use:**
+- Automate session logging and audit trails
+- Auto-commit changes at session end
+- Track usage analytics
+- Integrate with external tools and services
+- Custom session workflows

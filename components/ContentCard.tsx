@@ -40,7 +40,9 @@ export default function ContentCard({ item, onClick }: ContentCardProps) {
 
   const handleCopy = (e: React.MouseEvent) => {
     e.stopPropagation();
-    navigator.clipboard.writeText(item.content);
+    // For agents, copy rawContent (includes frontmatter); otherwise copy content
+    const textToCopy = item.rawContent || item.content;
+    navigator.clipboard.writeText(textToCopy);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
