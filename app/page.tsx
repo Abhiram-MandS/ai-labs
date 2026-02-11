@@ -145,7 +145,7 @@ export default function Home() {
                  
                  <div className="col-span-1 md:col-span-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 flex flex-col justify-center items-start relative overflow-hidden group">
                     <div className="absolute top-0 right-0 p-32 bg-emerald-500/5 rounded-full blur-3xl -mr-16 -mt-16 pointer-events-none"></div>
-                    <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-100 mb-1 z-10">Welcome to AI Labs International</h3>
+                    <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-100 mb-1 z-10">Welcome to AI Labs</h3>
                     <p className="text-slate-500 dark:text-slate-400 text-sm z-10">Discover prompts, skills, tips, documentation, and resources.</p>
                  </div>
               </div>
