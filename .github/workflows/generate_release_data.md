@@ -7,10 +7,14 @@ description: |
   changelogs, highlights, and contributor acknowledgements.
 
 on:
+  workflow_run:
+    workflows: ["Deploy Next.js site to Pages"]
+    types: [completed]
+    branches: [main]
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
   issues: read
   pull-requests: read
 
@@ -21,13 +25,62 @@ tools:
     lockdown: false
 
 safe-outputs:
-  create-tag:
-    tag-pattern: "v*"
-    ref: HEAD
-  create-release:
-    tag-pattern: "v*"
-    draft: true
-    prerelease: false
+  jobs:
+    create-release:
+      description: "Create a GitHub release with a tag and release notes"
+      runs-on: ubuntu-latest
+      output: "Release created successfully!"
+      permissions:
+        contents: write
+      inputs:
+        tag:
+          description: "The version tag (e.g., v1.2.0)"
+          required: true
+          type: string
+        title:
+          description: "The release title"
+          required: true
+          type: string
+        body:
+          description: "The release notes in markdown format"
+          required: true
+          type: string
+        draft:
+          description: "Create as draft release"
+          required: false
+          type: boolean
+          default: "true"
+      steps:
+        - name: Checkout
+          uses: actions/checkout@v4
+          with:
+            fetch-depth: 0
+        - name: Create release
+          env:
+            GH_TOKEN: ${{ github.token }}
+          run: |
+            if [ -f "$GH_AW_AGENT_OUTPUT" ]; then
+              TAG=$(cat "$GH_AW_AGENT_OUTPUT" | jq -r '.items[] | select(.type == "create_release") | .tag')
+              TITLE=$(cat "$GH_AW_AGENT_OUTPUT" | jq -r '.items[] | select(.type == "create_release") | .title')
+              BODY=$(cat "$GH_AW_AGENT_OUTPUT" | jq -r '.items[] | select(.type == "create_release") | .body')
+              DRAFT=$(cat "$GH_AW_AGENT_OUTPUT" | jq -r '.items[] | select(.type == "create_release") | .draft // "true"')
+              
+              echo "Creating release $TAG"
+              
+              DRAFT_FLAG=""
+              if [ "$DRAFT" = "true" ]; then
+                DRAFT_FLAG="--draft"
+              fi
+              
+              # Create the tag and release
+              echo "$BODY" > /tmp/release-notes.md
+              gh release create "$TAG" $DRAFT_FLAG --title "$TITLE" --notes-file /tmp/release-notes.md
+              
+              echo "✅ Release $TAG created successfully"
+            else
+              echo "No agent output found"
+              exit 1
+            fi
 ---
 
 # Release Description Generator
