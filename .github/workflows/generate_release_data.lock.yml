@@ -21,16 +21,18 @@
 #
 # For more information: https://github.github.com/gh-aw/introduction/overview/
 #
-# This workflow generates a new GitHub release with an auto-generated
+# This workflow updates an existing GitHub release with an auto-generated
 # description. It analyzes commits, merged PRs, and closed issues since
-# the last release, determines the next semantic version, creates a new
-# release tag, and then creates a well-structured release with categorized
-# changelogs, highlights, and contributor acknowledgements.
+# the previous release and creates a well-structured release description with
+# categorized changelogs, highlights, and contributor acknowledgements.
 #
-# frontmatter-hash: 51e13ea5655faddfc4bb24160fcfeb208cb571991a25bde63a008494bb356e57
+# frontmatter-hash: 0d19d05297276f8ed5f3d2ef172f182d01713ae68c46b349fa5a209a0191bcad
 
 name: "Release Description Generator"
 "on":
+  release:
+    types:
+    - created
   workflow_dispatch:
   workflow_run:
     # zizmor: ignore[dangerous-triggers] - workflow_run trigger is secured with role and fork validation
@@ -201,10 +203,42 @@ jobs:
           mkdir -p /tmp/gh-aw/safeoutputs
           mkdir -p /tmp/gh-aw/mcp-logs/safeoutputs
           cat > /opt/gh-aw/safeoutputs/config.json << 'GH_AW_SAFE_OUTPUTS_CONFIG_EOF'
-          {"create-release":{"description":"Create a GitHub release with a tag and release notes","inputs":{"body":{"default":null,"description":"The release notes in markdown format","required":true,"type":"string"},"draft":{"default":"false","description":"Create as draft release (set to false to publish immediately)","required":false,"type":"boolean"},"tag":{"default":null,"description":"The version tag (e.g., v1.2.0)","required":true,"type":"string"},"title":{"default":null,"description":"The release title","required":true,"type":"string"}},"output":"Release created successfully!"},"missing_data":{},"missing_tool":{},"noop":{"max":1}}
+          {"missing_data":{},"missing_tool":{},"noop":{"max":1},"update_release":{"max":1}}
           GH_AW_SAFE_OUTPUTS_CONFIG_EOF
           cat > /opt/gh-aw/safeoutputs/tools.json << 'GH_AW_SAFE_OUTPUTS_TOOLS_EOF'
           [
+            {
+              "description": "Update a GitHub release description by replacing, appending to, or prepending to the existing content. Use this to add release notes, changelogs, or additional information to an existing release. CONSTRAINTS: Maximum 1 release(s) can be updated.",
+              "inputSchema": {
+                "additionalProperties": false,
+                "properties": {
+                  "body": {
+                    "description": "Release body content in Markdown. For 'replace', this becomes the entire release body. For 'append'/'prepend', this is added with a separator.",
+                    "type": "string"
+                  },
+                  "operation": {
+                    "description": "How to update the release body: 'replace' (completely overwrite), 'append' (add to end with separator), or 'prepend' (add to start with separator).",
+                    "enum": [
+                      "replace",
+                      "append",
+                      "prepend"
+                    ],
+                    "type": "string"
+                  },
+                  "tag": {
+                    "description": "Release tag name (e.g., 'v1.0.0'). REQUIRED - must be provided explicitly as the tag cannot always be inferred from event context.",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "tag",
+                  "operation",
+                  "body"
+                ],
+                "type": "object"
+              },
+              "name": "update_release"
+            },
             {
               "description": "Report that a tool or capability needed to complete the task is not available, or share any information you deem important about missing functionality or limitations. Use this when you cannot accomplish what was requested because the required functionality is missing or access is restricted.",
               "inputSchema": {
@@ -273,38 +307,6 @@ jobs:
                 "type": "object"
               },
               "name": "missing_data"
-            },
-            {
-              "description": "Create a GitHub release with a tag and release notes",
-              "inputSchema": {
-                "additionalProperties": false,
-                "properties": {
-                  "body": {
-                    "description": "The release notes in markdown format",
-                    "type": "string"
-                  },
-                  "draft": {
-                    "default": "false",
-                    "description": "Create as draft release (set to false to publish immediately)",
-                    "type": "boolean"
-                  },
-                  "tag": {
-                    "description": "The version tag (e.g., v1.2.0)",
-                    "type": "string"
-                  },
-                  "title": {
-                    "description": "The release title",
-                    "type": "string"
-                  }
-                },
-                "required": [
-                  "body",
-                  "tag",
-                  "title"
-                ],
-                "type": "object"
-              },
-              "name": "create_release"
             }
           ]
           GH_AW_SAFE_OUTPUTS_TOOLS_EOF
@@ -339,6 +341,31 @@ jobs:
                   "type": "string",
                   "sanitize": true,
                   "maxLength": 65000
+                }
+              }
+            },
+            "update_release": {
+              "defaultMax": 1,
+              "fields": {
+                "body": {
+                  "required": true,
+                  "type": "string",
+                  "sanitize": true,
+                  "maxLength": 65000
+                },
+                "operation": {
+                  "required": true,
+                  "type": "string",
+                  "enum": [
+                    "replace",
+                    "append",
+                    "prepend"
+                  ]
+                },
+                "tag": {
+                  "type": "string",
+                  "sanitize": true,
+                  "maxLength": 256
                 }
               }
             }
@@ -738,11 +765,12 @@ jobs:
     needs:
       - activation
       - agent
-      - create_release
       - detection
       - safe_outputs
     if: (always()) && (needs.agent.result != 'skipped')
     runs-on: ubuntu-slim
+    permissions:
+      contents: write
     outputs:
       noop_message: ${{ steps.noop.outputs.noop_message }}
       tools_reported: ${{ steps.missing_tool.outputs.tools_reported }}
@@ -826,71 +854,6 @@ jobs:
             const { main } = require('/opt/gh-aw/actions/handle_noop_message.cjs');
             await main();
 
-  create_release:
-    needs:
-      - agent
-      - detection
-    if: ((!cancelled()) && (needs.agent.result != 'skipped')) && (contains(needs.agent.outputs.output_types, 'create_release'))
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-    steps:
-      - name: Download agent output artifact
-        continue-on-error: true
-        uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6.0.0
-        with:
-          name: agent-output
-          path: /opt/gh-aw/safe-jobs/
-      - name: Setup Safe Job Environment Variables
-        run: |
-          find "/opt/gh-aw/safe-jobs/" -type f -print
-          echo "GH_AW_AGENT_OUTPUT=/opt/gh-aw/safe-jobs/agent_output.json" >> "$GITHUB_ENV"
-      - name: Checkout
-        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
-        with:
-          fetch-depth: 0
-      - name: Create release
-        run: |-
-          if [ -f "$GH_AW_AGENT_OUTPUT" ]; then
-            TAG=$(cat "$GH_AW_AGENT_OUTPUT" | jq -r '.items[] | select(.type == "create_release") | .tag')
-            TITLE=$(cat "$GH_AW_AGENT_OUTPUT" | jq -r '.items[] | select(.type == "create_release") | .title')
-            BODY=$(cat "$GH_AW_AGENT_OUTPUT" | jq -r '.items[] | select(.type == "create_release") | .body')
-            DRAFT=$(cat "$GH_AW_AGENT_OUTPUT" | jq -r '.items[] | select(.type == "create_release") | .draft // "false"')
-
-            echo "Creating release $TAG"
-
-            # Check if release already exists
-            if gh release view "$TAG" > /dev/null 2>&1; then
-              echo "⚠️ Release $TAG already exists, skipping"
-              exit 0
-            fi
-
-            DRAFT_FLAG=""
-            if [ "$DRAFT" = "true" ]; then
-              DRAFT_FLAG="--draft"
-            fi
-
-            # Check if tag exists, if not create at HEAD
-            if git rev-parse "$TAG" > /dev/null 2>&1; then
-              echo "Tag $TAG already exists, creating release for existing tag"
-              TARGET_FLAG=""
-            else
-              echo "Creating new tag $TAG at HEAD"
-              TARGET_FLAG="--target $(git rev-parse HEAD)"
-            fi
-
-            # Create the release
-            echo "$BODY" > /tmp/release-notes.md
-            gh release create "$TAG" $DRAFT_FLAG $TARGET_FLAG --title "$TITLE" --notes-file /tmp/release-notes.md
-
-            echo "✅ Release $TAG created successfully"
-          else
-            echo "No agent output found"
-            exit 1
-          fi
-        env:
-          GH_TOKEN: ${{ github.token }}
-
   detection:
     needs: agent
     if: needs.agent.outputs.output_types != '' || needs.agent.outputs.has_patch == 'true'
@@ -927,7 +890,7 @@ jobs:
         uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
         env:
           WORKFLOW_NAME: "Release Description Generator"
-          WORKFLOW_DESCRIPTION: "This workflow generates a new GitHub release with an auto-generated\ndescription. It analyzes commits, merged PRs, and closed issues since\nthe last release, determines the next semantic version, creates a new\nrelease tag, and then creates a well-structured release with categorized\nchangelogs, highlights, and contributor acknowledgements."
+          WORKFLOW_DESCRIPTION: "This workflow updates an existing GitHub release with an auto-generated\ndescription. It analyzes commits, merged PRs, and closed issues since\nthe previous release and creates a well-structured release description with\ncategorized changelogs, highlights, and contributor acknowledgements."
           HAS_PATCH: ${{ needs.agent.outputs.has_patch }}
         with:
           script: |
@@ -1020,6 +983,8 @@ jobs:
       - detection
     if: ((!cancelled()) && (needs.agent.result != 'skipped')) && (needs.detection.outputs.success == 'true')
     runs-on: ubuntu-slim
+    permissions:
+      contents: write
     timeout-minutes: 15
     env:
       GH_AW_ENGINE_ID: "copilot"
@@ -1051,7 +1016,7 @@ jobs:
         uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
         env:
           GH_AW_AGENT_OUTPUT: ${{ env.GH_AW_AGENT_OUTPUT }}
-          GH_AW_SAFE_OUTPUTS_HANDLER_CONFIG: "{\"missing_data\":{},\"missing_tool\":{}}"
+          GH_AW_SAFE_OUTPUTS_HANDLER_CONFIG: "{\"missing_data\":{},\"missing_tool\":{},\"update_release\":{\"max\":1}}"
         with:
           github-token: ${{ secrets.GH_AW_GITHUB_TOKEN || secrets.GITHUB_TOKEN }}
           script: |
