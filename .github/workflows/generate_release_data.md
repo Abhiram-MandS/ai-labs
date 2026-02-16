@@ -63,18 +63,33 @@ safe-outputs:
               TAG=$(cat "$GH_AW_AGENT_OUTPUT" | jq -r '.items[] | select(.type == "create_release") | .tag')
               TITLE=$(cat "$GH_AW_AGENT_OUTPUT" | jq -r '.items[] | select(.type == "create_release") | .title')
               BODY=$(cat "$GH_AW_AGENT_OUTPUT" | jq -r '.items[] | select(.type == "create_release") | .body')
-              DRAFT=$(cat "$GH_AW_AGENT_OUTPUT" | jq -r '.items[] | select(.type == "create_release") | .draft // "true"')
+              DRAFT=$(cat "$GH_AW_AGENT_OUTPUT" | jq -r '.items[] | select(.type == "create_release") | .draft // "false"')
               
               echo "Creating release $TAG"
+              
+              # Check if release already exists
+              if gh release view "$TAG" > /dev/null 2>&1; then
+                echo "⚠️ Release $TAG already exists, skipping"
+                exit 0
+              fi
               
               DRAFT_FLAG=""
               if [ "$DRAFT" = "true" ]; then
                 DRAFT_FLAG="--draft"
               fi
               
-              # Create the tag and release
+              # Check if tag exists, if not create at HEAD
+              if git rev-parse "$TAG" > /dev/null 2>&1; then
+                echo "Tag $TAG already exists, creating release for existing tag"
+                TARGET_FLAG=""
+              else
+                echo "Creating new tag $TAG at HEAD"
+                TARGET_FLAG="--target $(git rev-parse HEAD)"
+              fi
+              
+              # Create the release
               echo "$BODY" > /tmp/release-notes.md
-              gh release create "$TAG" $DRAFT_FLAG --title "$TITLE" --notes-file /tmp/release-notes.md
+              gh release create "$TAG" $DRAFT_FLAG $TARGET_FLAG --title "$TITLE" --notes-file /tmp/release-notes.md
               
               echo "✅ Release $TAG created successfully"
             else
@@ -94,6 +109,14 @@ If no previous release tag exists:
 - Use the initial commit as the starting point
 - Default to version `v1.0.0` for the first release
 - Include all commits from repository inception
+
+## Existing Release Detection
+
+Before creating a release:
+1. List all existing tags to find the latest version
+2. Determine the commit range since the last tagged release
+3. If no new commits exist since the last tag, skip release creation
+4. Always bump to the NEXT version based on changes (don't reuse existing tags)
 
 ## What to include
 
