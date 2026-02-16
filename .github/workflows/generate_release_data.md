@@ -1,10 +1,9 @@
 ---
 description: |
-  This workflow generates a new GitHub release with an auto-generated
+  This workflow updates an existing GitHub release with an auto-generated
   description. It analyzes commits, merged PRs, and closed issues since
-  the last release, determines the next semantic version, creates a new
-  release tag, and then creates a well-structured release with categorized
-  changelogs, highlights, and contributor acknowledgements.
+  the previous release and creates a well-structured release description with
+  categorized changelogs, highlights, and contributor acknowledgements.
 
 on:
   workflow_run:
@@ -12,6 +11,8 @@ on:
     types: [completed]
     branches: [main]
   workflow_dispatch:
+  release:
+    types: [created]
 
 permissions:
   contents: read
@@ -25,98 +26,21 @@ tools:
     lockdown: false
 
 safe-outputs:
-  jobs:
-    create-release:
-      description: "Create a GitHub release with a tag and release notes"
-      runs-on: ubuntu-latest
-      output: "Release created successfully!"
-      permissions:
-        contents: write
-      inputs:
-        tag:
-          description: "The version tag (e.g., v1.2.0)"
-          required: true
-          type: string
-        title:
-          description: "The release title"
-          required: true
-          type: string
-        body:
-          description: "The release notes in markdown format"
-          required: true
-          type: string
-        draft:
-          description: "Create as draft release (set to false to publish immediately)"
-          required: false
-          type: boolean
-          default: "false"
-      steps:
-        - name: Checkout
-          uses: actions/checkout@v4
-          with:
-            fetch-depth: 0
-        - name: Create release
-          env:
-            GH_TOKEN: ${{ github.token }}
-          run: |
-            if [ -f "$GH_AW_AGENT_OUTPUT" ]; then
-              TAG=$(cat "$GH_AW_AGENT_OUTPUT" | jq -r '.items[] | select(.type == "create_release") | .tag')
-              TITLE=$(cat "$GH_AW_AGENT_OUTPUT" | jq -r '.items[] | select(.type == "create_release") | .title')
-              BODY=$(cat "$GH_AW_AGENT_OUTPUT" | jq -r '.items[] | select(.type == "create_release") | .body')
-              DRAFT=$(cat "$GH_AW_AGENT_OUTPUT" | jq -r '.items[] | select(.type == "create_release") | .draft // "false"')
-              
-              echo "Creating release $TAG"
-              
-              # Check if release already exists
-              if gh release view "$TAG" > /dev/null 2>&1; then
-                echo "⚠️ Release $TAG already exists, skipping"
-                exit 0
-              fi
-              
-              DRAFT_FLAG=""
-              if [ "$DRAFT" = "true" ]; then
-                DRAFT_FLAG="--draft"
-              fi
-              
-              # Check if tag exists, if not create at HEAD
-              if git rev-parse "$TAG" > /dev/null 2>&1; then
-                echo "Tag $TAG already exists, creating release for existing tag"
-                TARGET_FLAG=""
-              else
-                echo "Creating new tag $TAG at HEAD"
-                TARGET_FLAG="--target $(git rev-parse HEAD)"
-              fi
-              
-              # Create the release
-              echo "$BODY" > /tmp/release-notes.md
-              gh release create "$TAG" $DRAFT_FLAG $TARGET_FLAG --title "$TITLE" --notes-file /tmp/release-notes.md
-              
-              echo "✅ Release $TAG created successfully"
-            else
-              echo "No agent output found"
-              exit 1
-            fi
+  update-release:
+    max: 1
 ---
 
 # Release Description Generator
 
-Generate a new GitHub release with a rich, well-structured description based on
-repository activity since the last release.
+Update a GitHub release with a rich, well-structured description based on
+repository activity since the previous release.
 
-## First Release Handling
+## Trigger Context
 
-If no previous release tag exists:
-- Use the initial commit as the starting point
-- Default to version `v1.0.0` for the first release
-- Include all commits from repository inception
-
-## Existing Release Detection
-
-Before creating a release:
-1. List all existing tags to find the latest version
-2. Determine the commit range since the last tagged release
-3. If no new commits exist since the last tag, skip release creation
-4. Always bump to the NEXT version based on changes (don't reuse existing tags)
+This workflow runs when:
+- A new release is created (generates description for that release)
+- After deployment workflow completes (updates the latest release)
+- Manually triggered (updates the latest release)
 
 ## What to include
 
@@ -135,20 +59,22 @@ Before creating a release:
 - Keep descriptions concise — one line per change
 - Call out breaking changes at the top with a ⚠️ warning
 
-## Version Bumping
-
-Follow semantic versioning (SemVer) to determine the next version:
-- **MAJOR** (x.0.0) — breaking changes present
-- **MINOR** (0.x.0) — new features added, no breaking changes
-- **PATCH** (0.0.x) — bug fixes and minor improvements only
-
 ## Process
 
-1. Identify the previous release tag (or initial commit if first release)
-2. Gather all commits, merged PRs, and closed issues since that tag
-3. Categorize changes by type (feature, fix, improvement, breaking, deps)
-4. Determine the next semantic version based on change types
-5. Create a new version tag (e.g., `v1.2.0`) on the current HEAD
-6. Identify all contributors from the gathered commits and PRs
-7. Generate the release description in markdown format
-8. Create a new **published** GitHub release with the new tag and description (set draft: false)
+1. Identify the release to update (from trigger context or latest release)
+2. Find the previous release tag to determine the commit range
+3. Gather all commits, merged PRs, and closed issues in that range
+4. Categorize changes by type (feature, fix, improvement, breaking, deps)
+5. Identify all contributors from the gathered commits and PRs
+6. Generate the release description in markdown format
+7. Output `update_release` with operation `replace` to update the release body
+
+## Output Format
+
+```json
+{"type": "update_release", "tag": "v1.2.0", "operation": "replace", "body": "..."}
+```
+
+- `tag` — optional for release events (inferred from context)
+- `operation` — `replace` (full replacement), `append`, or `prepend`
+- `body` — the release notes in markdown format

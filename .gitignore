@@ -43,3 +43,4 @@ yarn-error.log*
 contents/**/generated/
 lib/content-data.ts
 next-env.d.ts
+.github/aw*
