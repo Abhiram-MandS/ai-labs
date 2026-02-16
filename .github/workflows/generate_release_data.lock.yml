@@ -27,7 +27,7 @@
 # release tag, and then creates a well-structured release with categorized
 # changelogs, highlights, and contributor acknowledgements.
 #
-# frontmatter-hash: edd3946c04f92b99e001b51c7859d26c96fd848e95c725f4bf58505df70276dd
+# frontmatter-hash: 51e13ea5655faddfc4bb24160fcfeb208cb571991a25bde63a008494bb356e57
 
 name: "Release Description Generator"
 "on":
@@ -201,7 +201,7 @@ jobs:
           mkdir -p /tmp/gh-aw/safeoutputs
           mkdir -p /tmp/gh-aw/mcp-logs/safeoutputs
           cat > /opt/gh-aw/safeoutputs/config.json << 'GH_AW_SAFE_OUTPUTS_CONFIG_EOF'
-          {"create-release":{"description":"Create a GitHub release with a tag and release notes","inputs":{"body":{"default":null,"description":"The release notes in markdown format","required":true,"type":"string"},"draft":{"default":"true","description":"Create as draft release","required":false,"type":"boolean"},"tag":{"default":null,"description":"The version tag (e.g., v1.2.0)","required":true,"type":"string"},"title":{"default":null,"description":"The release title","required":true,"type":"string"}},"output":"Release created successfully!"},"missing_data":{},"missing_tool":{},"noop":{"max":1}}
+          {"create-release":{"description":"Create a GitHub release with a tag and release notes","inputs":{"body":{"default":null,"description":"The release notes in markdown format","required":true,"type":"string"},"draft":{"default":"false","description":"Create as draft release (set to false to publish immediately)","required":false,"type":"boolean"},"tag":{"default":null,"description":"The version tag (e.g., v1.2.0)","required":true,"type":"string"},"title":{"default":null,"description":"The release title","required":true,"type":"string"}},"output":"Release created successfully!"},"missing_data":{},"missing_tool":{},"noop":{"max":1}}
           GH_AW_SAFE_OUTPUTS_CONFIG_EOF
           cat > /opt/gh-aw/safeoutputs/tools.json << 'GH_AW_SAFE_OUTPUTS_TOOLS_EOF'
           [
@@ -284,8 +284,8 @@ jobs:
                     "type": "string"
                   },
                   "draft": {
-                    "default": "true",
-                    "description": "Create as draft release",
+                    "default": "false",
+                    "description": "Create as draft release (set to false to publish immediately)",
                     "type": "boolean"
                   },
                   "tag": {

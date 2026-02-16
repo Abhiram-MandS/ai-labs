@@ -46,10 +46,10 @@ safe-outputs:
           required: true
           type: string
         draft:
-          description: "Create as draft release"
+          description: "Create as draft release (set to false to publish immediately)"
           required: false
           type: boolean
-          default: "true"
+          default: "false"
       steps:
         - name: Checkout
           uses: actions/checkout@v4
@@ -151,4 +151,4 @@ Follow semantic versioning (SemVer) to determine the next version:
 5. Create a new version tag (e.g., `v1.2.0`) on the current HEAD
 6. Identify all contributors from the gathered commits and PRs
 7. Generate the release description in markdown format
-8. Create a new **draft** GitHub release with the new tag and description
+8. Create a new **published** GitHub release with the new tag and description (set draft: false)
